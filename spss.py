@@ -17,6 +17,11 @@
 
 import pandas as pd
 
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='utf-8')
+
 # 내부적으로 pyreadstat 사용
 # df = pd.read_spss("po.sav")
 
@@ -228,69 +233,147 @@ import pandas as pd
 # 원본 파일 읽기
 df = pd.read_csv("data/data.csv")
 
+pd.set_option('display.max_rows', None)       # 모든 행 출력
+pd.set_option('display.max_columns', None)    # 모든 열 출력
+# pd.set_option('display.width', None)          # 줄 바꿈 없이 가로 출력
+pd.set_option('display.max_colwidth', None)   # 셀 내용 생략 없이 출력
+
 # 컬럼 매핑 및 정의
 column_mapping = {
-    "ID": "응답자ID",
-    "SQ1": "성별",
-    "SQ2": "연령대",
-    "SQ2_R": "연령대(리코딩)",
-    "SQ3": "거주지역",
+    "ID": "ID",
+    "SQ1": "gender",
+    "SQ2": "age",
+    "SQ2_R": "age_group",
+    "SQ3": "region",
 
-    "Q1": "기후변화 관심도",
-    "Q2": "기후변화 심각성 인식",
-    "Q3": "기후변화 체감 영역",
-    "Q4": "기후변화 원인 인식",
-    "Q5": "기후변화 인권영향 인식",
-    "Q6": "기후변화의 인간 영향",
-    "Q7": "기후변화의 생명·건강 영향",
-    "Q8": "기후변화가 본인 삶에 미치는 영향",
-    "Q9": "피해 예상 집단",
-    "Q10": "기후변화 정보 접촉 빈도",
-    "Q11": "기후변화 정보 접촉 빈도(보조)",
-    "Q12": "기후변화 정보 접하는 수단",
-    "Q13": "신뢰하는 정보 출처",
-    "Q14": "정책 수립 시 고려사항",
+    "Q1": "climate_issue",
+    "Q2": "climate_change_serious",
+    
+    "Q4": "reason_solution",
+    "Q5": "human_rights_effect",
+    
+    "Q8": "climate_life_effect",
+  
+    "Q10": "climate_info",
+    "Q11": "climate_rights_effect",
 
-    "Q15": "공청회·집회 참여 경험",
-    "Q16": "기후변화 관련 대화 빈도",
-    "Q17_1": "중요도_인력·예산 확대",
-    "Q17_2": "중요도_기술개발",
-    "Q17_3": "중요도_취약계층 보호",
-    "Q17_4": "중요도_인식개선·홍보",
-    "Q17_5": "중요도_국제협력",
-    "Q17_6": "중요도_기타",
+    "Q15": "participation", 
+    "Q16": "conversation", 
 
-    "Q18": "정부 정책 평가",
-    "Q19": "정부의 정보 공개 수준",
-    "Q20": "정부의 정보 설명 수준",
-    "Q21": "정부 정책에 의견 반영 정도",
-    "Q22": "정부 정책에 의견 반영 정도(보조)",
-    "Q23": "시민 참여 형태",
-    "Q24": "시민 참여 필요성",
-    "Q25": "시민 참여 여지",
-    "Q26": "시민 참여 의향",
+    "Q18": "policy_score", 
+    "Q19": "access",
+    "Q20": "gov_info", 
+    "Q21": "citizen_reflect", 
+    "Q22": "poor_reflect", 
+    "Q23": "citizen_opinion",
+    "Q24": "citizen_necessity",
+    "Q25": "citizen_intention",
+    "Q26": "citizen_participation",
 
-    "DQ1": "직업",
-    "DQ2": "최종학력",
-    "DQ3": "가구 월평균 소득",
-    "DQ4": "주관적 생활수준"
+    "DQ1": "job",
+    "DQ2": "education",
+    "DQ3": "income",
+    "DQ4": "living_level"
 }
 
 # 컬럼 이름 변경
 df.rename(columns=column_mapping, inplace=True)
 
+# 매핑되지 않은 컬럼 제거
+columns_to_keep = column_mapping.values()  # rename 이후라 values() 사용
+df = df[[col for col in df.columns if col in columns_to_keep]]
+
+value_mappings = {
+    "gender": {1: '남성', 2: '여성'},
+    "age_group": {1: '10대', 2: '20대', 3: '30대', 4: '40대', 5: '50대', 6: '60대 이상'},
+    "region": {
+        1: '서울', 2: '부산', 3: '대구', 4: '인천', 5: '광주', 6: '대전', 7: '울산',
+        8: '경기', 9: '강원', 10: '충북', 11: '충남', 12: '세종', 13: '전북', 14: '전남',
+        15: '경북', 16: '경남', 17: '제주'
+    },
+    "climate_issue": {1: '매우 많다', 2: '어느정도 있다', 3: '별로 없다', 4: '전혀 없다'},
+    "climate_change_serious": {1: '매우 심각하다', 2: '어느정도 심각하다', 3: '별로 심각하지 않다', 4: '전혀 심각하지 않다'},
+    "reason_solution": {1: '매우 잘 안다', 2: '어느정도 안다', 3: '잘 모른다', 4: '전혀 모른다'},
+    "human_rights_effect": {
+        1: '생명 위협', 2: '건강 위협', 3: '주거환경 우려', 4: '식량/물 우려',
+        5: '경제적 자유 침해', 6: '기타'
+    },
+    "climate_life_effect": {1: '매우 심각하다', 2: '어느정도 심각하다', 3: '별로 심각하지 않다', 4: '전혀 심각하지 않다'},
+    "climate_inform": {1: '매우 자주', 2: '어느정도 자주', 3: '별로 접하지 않음', 4: '전혀 접하지 않음'},
+    "climate_rights_effect": {1: '매우 자주', 2: '어느정도 자주', 3: '별로 접하지 않음', 4: '전혀 접하지 않음'},
+    "participation": {1: '자주', 2: '가능한 자주', 3: '참여한 적 있음', 4: '전혀 없음'},
+    "conversation": {1: '충분히', 2: '어느 정도', 3: '가끔', 4: '전혀 하지 않음'},
+    "policy_score": {1: '매우 잘함', 2: '어느 정도 잘함', 3: '별로 못함', 4: '전혀 못함'},
+    "access": {1: '충분히', 2: '어느 정도', 3: '별로', 4: '전혀'},
+    "gov_info": {1: '충분히', 2: '어느 정도', 3: '별로', 4: '전혀'},
+    "citizen_reflect": {1: '충분히', 2: '어느 정도', 3: '별로 못함', 4: '전혀 못함'},
+    "poor_reflect": {1: '충분히', 2: '어느 정도', 3: '별로 못함', 4: '전혀 못함'},
+    "citizen_opinion": {1: '적극적 참여', 2: '의견 수렴', 3: '수립과정 공개', 4: '전문가가 수립'},
+    "citizen_necessity": {1: '매우 필요', 2: '어느 정도 필요', 3: '별로 필요 없음', 4: '전혀 필요 없음'},
+    "citizen_intention": {1: '충분히 열려 있음', 2: '어느 정도 열려 있음', 3: '별로 열려 있지 않음', 4: '전혀 열려 있지 않음'},
+    "citizen_participation": {1: '적극적 참여', 2: '의견 제안 정도', 3: '사안에 따라', 4: '참여 의향 없음'},
+    "job": {
+        1: '농업/임업/축산/어업', 2: '자영업', 3: '판매·서비스직', 4: '사무직',
+        5: '기술·작업직', 6: '공무원·교사', 7: '전문직', 8: '가정주부',
+        9: '무직·은퇴', 10: '학생', 11: '기타'
+    },
+    "education": {1: '다니지 않음', 2: '초등학교', 3: '중학교', 4: '고등학교', 5: '전문대(2~3년)', 6: '대학교(4년)', 7: '대학원 이상'},
+    "income": {
+        1: '100만원 이하', 2: '101~200만원', 3: '201~300만원', 4: '301~400만원',
+        5: '401~500만원', 6: '501~600만원', 7: '601~700만원', 8: '701~800만원',
+        9: '801~900만원', 10: '901~1000만원', 11: '1001만원 이상'
+    },
+    "living_level": {1: '상', 2: '중상', 3: '중', 4: '중하', 5: '하'}
+}
+
+# 7. ID별로 정렬 (선택사항)
+df.sort_values('ID', inplace=True)
+
+# 8. 변환된 데이터 확인 (예: 상위 10개 출력)
+print(df.head(10))
+
+# 9. 필요시 저장
+df.to_csv("data/processed_data.csv", index=False)
+
+
+
+# print(df.columns)
+
+# # print(df["정책 수립 시 고려사항"])
+
+
+
+# 단일응답비율 엑셀 저장 ---------------------------------------------------
+ 
+# # 단일항목 응답비율 출력
+# for col in column_mapping.values():
+#     print(f"\n📊 [{col}] 응답 비율 (%)")
+#     proportion = df[col].value_counts(normalize=True, dropna=False) * 100
+#     print(proportion.round(1))
+
+
+
+# # df.to_excel("data/설문결과.xlsx", index=False, sheet_name="설문결과")
+# # 엑셀 저장
+# with pd.ExcelWriter("data/설문결과2.xlsx", engine="openpyxl") as writer:
+#     df.to_excel(writer, sheet_name="설문결과2", index=False)
+
+
+
+# -------------------------------------------
 # 변경된 결과 저장 (선택)
 # df.to_csv("답변 파일.csv", index=False)
 
 # 확인
 # print(df.head())
 
-# ✔️ 성별 vs 기후변화 심각성 인식
-cross_tab = pd.crosstab(df['기후변화 인권영향 인식'], df['기후변화 심각성 인식'], normalize='index') * 100
-print("\n[기후변화 인권영향 인식 vs 기후변화 심각성 인식 (%)]:")
-print(cross_tab.round(1))
+# vs 
+# cross_tab = pd.crosstab(df['응답자ID'], df['기후변화 심각성 인식'], normalize='index') * 100
+# print("\n[응답자ID vs 기후변화 심각성 인식 (%)]:")
+# print(cross_tab.round(1))
 
 
+# ===============시각화 ================================
 
 # import pandas as pd
 # import seaborn as sns
